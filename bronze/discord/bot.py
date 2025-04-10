@@ -2,6 +2,7 @@ import asyncio
 import json
 import math
 import os
+import random
 import nextcord 
 from nextcord.ext import commands
 from dotenv import load_dotenv
@@ -56,7 +57,7 @@ async def on_ready():
 async def gif(interaction: nextcord.Interaction,query:str):
     data = requests.get(f"https://g.tenor.com/v1/search?q={query}&key=LIVDSRZULELA").json()
     if "results" in data:
-        gif = data["results"][math.random(0,len(data["results"])-1)]
+        gif = data["results"][random(0,len(data["results"])-1)]
         gif_url = gif["media"][0]["gif"]["url"]
         await interaction.response.send_message(gif_url)
     else:

@@ -1,9 +1,12 @@
+import asyncio
+import json
 import os
 import nextcord 
 from nextcord.ext import commands
 from dotenv import load_dotenv
 import requests
 import re
+import yt_dlp
 
 load_dotenv()
 
@@ -13,6 +16,9 @@ GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.
 NASA_KEY = os.environ.get('NASA_KEY')
 NASA_URL = f"https://api.nasa.gov/planetary/apod?api_key={NASA_KEY}"
 GUILDS_LIST = [1262172237499334667]
+
+global ytdl
+global ffmpeg_options
 
 def build_gemini_request(message):
     headers = {
@@ -44,7 +50,6 @@ bot = commands.Bot()
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
-
 
 
 @bot.slash_command(name="hello", guild_ids=GUILDS_LIST)
@@ -104,16 +109,19 @@ async def reddit(interaction: nextcord.Interaction, subreddit:str ="argentina", 
     limit = min(limit,10)
 
     await interaction.response.defer()
-    response = requests.get(f"https://www.reddit.com/r/{subreddit}/{selected_category}.json?limit={limit}")
-    print(f"https://www.reddit.com/r/{subreddit}/{selected_category}.json?limit={limit}")
+    response = requests.get(f"https://www.reddit.com/r/{subreddit}/{selected_category}.json?limit={limit}", headers={"User-Agent": "CanPake-Discord-Bot"})
     json_response = response.json()
-    print(json_response)
-    embeds = []
+    if "error" in json_response:
+        await interaction.followup.send(f"Error({json_response["error"]}): {json_response["message"]}" )
+        return
     
+    
+    embeds = []
+
     posts = json_response["data"]["children"]
-    print(posts[0]["data"]["pinned"])
-    not_pinned_posts = filter(lambda post: not post["data"]["pinned"], posts)
-    print(len(not_pinned_posts))
+    not_pinned_posts = list(filter(lambda post: not post["data"]["stickied"], posts))
+
+
     if response.status_code == 200:
         for post in not_pinned_posts:
             embed = nextcord.Embed(title=post["data"]["title"], url=post["data"]["url"])
@@ -132,27 +140,29 @@ async def reddit(interaction: nextcord.Interaction, subreddit:str ="argentina", 
         await interaction.followup.send("Non 2xx response :(")
 
 
-@bot.slash_command(guild_ids=GUILDS_LIST)
-async def choose_a_number(
-    interaction: nextcord.Interaction,
-    number: int = nextcord.SlashOption(
-        name="picker",
-        choices={"Top": 1, "New": 2, "All": 3},
-    ),
-):
-    """Repeats your number that you choose from a list
+@bot.slash_command(name="play", description="Play some music", guild_ids=GUILDS_LIST)
+async def play(interaction: nextcord.Interaction, url:str ="https://www.youtube.com/watch?v=dQw4w9WgXcQ"):
+    await interaction.response.defer()
+    yt_dl_options = {"format": "bestaudio/best"}
+    ytdl = yt_dlp.YoutubeDL(yt_dl_options)
 
-    Parameters
-    ----------
-    interaction: Interaction
-        The interaction object
-    number: int
-        The chosen number.
-    """
-    await interaction.response.send_message(f"You chose {number}!")
+    ffmpeg_options = {'options': '-vn'}
+    try:
+        voice_client = await interaction.user.voice.channel.connect()
+    except Exception as e:
+        print(e)
+    
+    try:
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
 
-
+        song = data['url']
+        player = nextcord.FFmpegPCMAudio(song, **ffmpeg_options)
+        voice_client.play(player)
+        await interaction.followup.send("Playing audio")
+    except Exception as e:
+        print(e)
+        await interaction.followup.send("Error extracting audio")
 
 bot.run(DISCORD_TOKEN)
 
-#https://www.youtube.com/watch?v=2lj4XEYQs78

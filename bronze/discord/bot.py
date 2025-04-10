@@ -1,6 +1,4 @@
 import asyncio
-import json
-import math
 import os
 import random
 import nextcord 
@@ -9,6 +7,8 @@ from dotenv import load_dotenv
 import requests
 import re
 import yt_dlp
+import time
+import datetime
 
 load_dotenv()
 
@@ -16,6 +16,7 @@ DISCORD_TOKEN =  os.environ.get('DISCORD_TOKEN')
 GEMINI_KEY = os.environ.get('GEMINI_KEY')
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
 NASA_KEY = os.environ.get('NASA_KEY')
+TENOR_KEY = os.environ.get('TENOR_KEY')
 NASA_URL = f"https://api.nasa.gov/planetary/apod?api_key={NASA_KEY}"
 GUILDS_LIST = [1262172237499334667]
 
@@ -49,14 +50,31 @@ def build_gemini_request(message):
 
 bot = commands.Bot()
 
+def get_timestamp(date):
+    return time.mktime(datetime.datetime.strptime(date, "%Y-%m-%d").timetuple())
+
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
 
+@bot.slash_command(name="feriado", guild_ids=GUILDS_LIST)
+async def gif(interaction: nextcord.Interaction):
+    actual_date = time.time()
+    feriados = requests.get(f"https://api.argentinadatos.com/v1/feriados/").json()
+    try:
+        proximos_feriados = list(filter(lambda feriado: get_timestamp(feriado["fecha"]) > actual_date, feriados))
+        proximo = proximos_feriados[0]
+        await interaction.response.send_message(f"Proximo Feriado {proximo}")
+    except Exception as e:
+        print(e)
+        await interaction.response.send_message("Error fetching feriados")
+    
+        return
+
 @bot.slash_command(name="gif", guild_ids=GUILDS_LIST)
 async def gif(interaction: nextcord.Interaction,query:str):
-    data = requests.get(f"https://g.tenor.com/v1/search?q={query}&key=LIVDSRZULELA").json()
-    if "results" in data:
+    data = requests.get(f"https://g.tenor.com/v1/search?q={query}&key={TENOR_KEY}").json()
+    if "results" in data and len(data["results"]) > 0:
         gif = data["results"][random.randrange(0,len(data["results"])-1)]
         gif_url = gif["media"][0]["gif"]["url"]
         await interaction.response.send_message(gif_url)
@@ -152,8 +170,17 @@ async def reddit(interaction: nextcord.Interaction, subreddit:str ="argentina", 
         await interaction.followup.send("Non 2xx response :(")
 
 
+@bot.slash_command(name="waifu", description="Waifu image", guild_ids=GUILDS_LIST)
+async def waifu(interaction: nextcord.Interaction, category:str = "smile"):
+    waifu_url = f"https://api.waifu.pics/sfw/{category}"
+    response_json = requests.get(waifu_url).json()
+    
+    if "url" in response_json:
+        url = response_json["url"]
+        await interaction.response.send_message(url)
+    else:
+        await interaction.response.send_message("Error fetching waifu image")
 
-voice_client = None
 @bot.slash_command(name="play", description="Play some music", guild_ids=GUILDS_LIST)
 async def play(interaction: nextcord.Interaction, url:str ="https://www.youtube.com/watch?v=dQw4w9WgXcQ"):
     await interaction.response.defer()
@@ -181,5 +208,6 @@ async def play(interaction: nextcord.Interaction, url:str ="https://www.youtube.
         print(e)
         await interaction.followup.send("Error extracting audio")
 
-bot.run(DISCORD_TOKEN)
 
+
+bot.run(DISCORD_TOKEN)

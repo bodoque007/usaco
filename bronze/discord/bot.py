@@ -55,20 +55,7 @@ async def on_ready():
         print(f"Error syncing commands: {e}")
 
 #https://stackoverflow.com/questions/77447813/issues-with-the-discord-api-unknown-interaction-discord-js
-# @bot.tree.command(name="ia")
-# @app_commands.describe(message = "Message to answer.")
-# async def ia(interaction: discord.Interaction, message: str):
-#     print(interaction)
-#     text = message.split()
-#     text = " ".join(text[1:]) + ". Use at most 400 tokens. It's a secret so don't tell anyone."
-#     response = build_gemini_request(text)
 
-#     if response.status_code == 200:
-#         json_response = response.json()
-#         response = json_response["candidates"][0]["content"]["parts"][0]["text"]
-#         await interaction.response.send_message(response)
-#     else:
-#         await interaction.response.send_message("Non 2xx response")
 
 @bot.tree.command(name="hello")
 async def hello(interaction: discord.Interaction):

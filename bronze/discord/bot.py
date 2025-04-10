@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import os
 import nextcord 
 from nextcord.ext import commands
@@ -50,6 +51,16 @@ bot = commands.Bot()
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
+
+@bot.slash_command(name="gif", guild_ids=GUILDS_LIST)
+async def gif(interaction: nextcord.Interaction,query:str):
+    data = requests.get(f"https://g.tenor.com/v1/search?q={query}&key=LIVDSRZULELA").json()
+    if "results" in data:
+        gif = data["results"][math.random(0,len(data["results"])-1)]
+        gif_url = gif["media"][0]["gif"]["url"]
+        await interaction.response.send_message(gif_url)
+    else:
+        await interaction.response.send_message("Error fetching gif")
 
 
 @bot.slash_command(name="hello", guild_ids=GUILDS_LIST)
@@ -140,6 +151,8 @@ async def reddit(interaction: nextcord.Interaction, subreddit:str ="argentina", 
         await interaction.followup.send("Non 2xx response :(")
 
 
+
+voice_client = None
 @bot.slash_command(name="play", description="Play some music", guild_ids=GUILDS_LIST)
 async def play(interaction: nextcord.Interaction, url:str ="https://www.youtube.com/watch?v=dQw4w9WgXcQ"):
     await interaction.response.defer()
@@ -148,7 +161,10 @@ async def play(interaction: nextcord.Interaction, url:str ="https://www.youtube.
 
     ffmpeg_options = {'options': '-vn'}
     try:
-        voice_client = await interaction.user.voice.channel.connect()
+        if bot.voice_clients:
+            voice_client = bot.voice_clients[0]
+        else:
+            voice_client = await interaction.user.voice.channel.connect()
     except Exception as e:
         print(e)
     
